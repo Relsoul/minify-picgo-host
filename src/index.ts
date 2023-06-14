@@ -8,53 +8,62 @@ export = (ctx: PicGo) => {
   const register = (): void => {
     ctx.helper.uploader.register('minify-picgo-host', {
       async handle (ctx) {
-        ctx.log.info(ctx.getConfig('picBed.minify-picgo-host'))
-        // ctx.log.info(ctx.getConfig())
-
-        const userConfig: any = ctx.getConfig('picBed.minify-picgo-host')
-        ctx.log.info('userConfig', userConfig)
-        const hmac = crypto.createHmac('sha256', userConfig.secret)
-        hmac.update(`${userConfig.username}-${userConfig.userpw}`)
-        const utoken = hmac.digest('hex')
         const imgList = ctx.output
+        for (const imgItem of imgList) {
+          // ctx.log.info(ctx.getConfig('picBed.minify-picgo-host'))
+          // ctx.log.info(imgItem)
+          // ctx.log.info(ctx.getConfig())
 
-        const formData = new FormData()
-        formData.append('filepond', imgList[0].buffer, { filename: 'xxx.png' })
-        // formData.append('x1', 1)
-        // ctx.log.info('formData', formData.getBuffer())
-        // ctx.log.info('imgList[0].buffer', imgList[0].buffer)
-        ctx.log.info('formData end')
-        ctx.log.info('formData--len', formData.getLengthSync())
+          const userConfig: any = ctx.getConfig('picBed.minify-picgo-host')
+          // ctx.log.info('userConfig', userConfig)
+          const hmac = crypto.createHmac('sha256', userConfig.secret)
+          hmac.update(`${userConfig.username}-${userConfig.userpw}`)
+          const utoken = hmac.digest('hex')
 
-        ctx.log.info('formData--header', formData.getHeaders())
-        const res = await ctx.request({
-          url: `${userConfig.host}/upload`,
-          proxy: {
-            host: '127.0.0.1',
-            port: 8899
+          const formData = new FormData()
+          formData.append('filepond', imgItem.buffer, { filename: imgItem.fileName })
+          // formData.append('x1', 1)
+          // ctx.log.info('formData', formData.getBuffer())
+          // ctx.log.info('imgList[0].buffer', imgList[0].buffer)
+          // ctx.log.info('formData end')
+          // ctx.log.info('formData--len', formData.getLengthSync())
 
-          },
-          method: 'POST',
-          // file: formData,
-          // body: formData.getBuffer(),
-          // form: { filepond: imgList[0].buffer },
-          data: formData.getBuffer(),
-          // body: formData,
-          resolveWithFullResponse: true,
-          // json: false,
-          // responseType: 'arraybuffer',
-          // data: { filepond: imgList[0].buffer, file: imgList[0].buffer },
-          headers: {
-            utoken,
-            ...formData.getHeaders(),
-            // 'Accept-Encoding': 'gzip, deflate, br',
-            'Content-Length': formData.getLengthSync()
-            // Connection: 'keep-alive'
-
-            // 'Content-Type': 'multipart/form-data'
+          // ctx.log.info('formData--header', formData.getHeaders())
+          let res
+          try {
+            res = await ctx.request({
+              url: `${userConfig.host}/upload`,
+              method: 'POST',
+              data: formData.getBuffer(),
+              // body: formData,
+              resolveWithFullResponse: true,
+              headers: {
+                utoken,
+                ...formData.getHeaders(),
+                'Content-Length': formData.getLengthSync()
+              }
+            }) // { status: number, data: IRes }
+          } catch (e) {
+            ctx.emit('notification', {
+              title: 'upload error',
+              body: e.message
+            })
+            ctx.log.error('minify upload error', e)
+            throw new Error(e)
           }
-        }) // { status: number, data: IRes }
-        ctx.log.info('res', res)
+
+          if (!res.data || res.data.code !== 1) {
+            ctx.emit('notification', {
+              title: 'upload error',
+              body: res.data.msg
+            })
+          }
+          delete imgItem.buffer
+          delete imgItem.base64Image
+          imgItem.imgUrl = res.data.data.url
+
+          // ctx.log.info('res', JSON.stringify(res.data))
+        }
 
         return ctx
       },
