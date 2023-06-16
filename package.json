@@ -1,7 +1,7 @@
 {
   "name": "picgo-plugin-minify-picgo-host",
-  "version": "1.0.0",
-  "description": "use self host",
+  "version": "1.0.1",
+  "description": "使用自有主机来作为个人图床",
   "main": "dist/index.js",
   "publishConfig": {
     "access": "public"
